@@ -1,3 +1,11 @@
+# Prompt
+
+```
+You are a specialist in natural language tests and you need to create a manual test case suite with 4 test cases for the provided screenshot. Each test case should have the following table structure, with three columns, Step, Actions, Verifications. Also, add a title to each table.
+
+Please show the results for the screenshot in the specified format, without comments.
+```
+
 Here are four manual test case scenarios based on the provided screenshot. Each test case follows the specified format with the columns: Step, Actions, and Verifications.
 
 ### Test Case 1: Verify Google Search Functionality
