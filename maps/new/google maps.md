@@ -1,49 +1,3 @@
-### Test Case 1: Verify Search Functionality
-**Precondition:** User is on the Google Maps home screen.
-
-| Step | Actions | Verifications |
-|-------------|-------------|-------------------|
-| 1 | Click on the search bar (labeled as "Pesquise no Google Maps"). | Verify the search bar is active and the cursor is blinking inside it. |
-| 2 | Enter "Central Park, New York" into the search bar. | Verify the search suggestions appear below the search bar. |
-| 3 | Press the "Enter" key or click the search icon. | Verify the map recenters to Central Park and displays relevant information. |
-
-### Test Case 2: Validate Zoom In/Out Functionality
-**Precondition:** User is on the Google Maps home screen.
-
-| Step | Actions | Verifications |
-|-------------|--------------|--------------------|
-| 1 | Click the "+" button on the bottom right corner to zoom in. | Verify the map zooms in, showing more detailed street and location information. |
-| 2 | Click the "-" button on the bottom right corner to zoom out. | Verify the map zooms out, showing larger area coverage with less detail. |
-
-### Test Case 3: Check Layer Toggle Functionality
-**Precondition:** User is on the Google Maps home screen.
-
-| Step | Actions | Verifications |
-|-------------|--------------|--------------------|
-| 1 | Click the "Camadas" icon at the bottom left corner. | Verify the layers menu appears. |
-| 2 | Select "Satellite" from the layer options. | Verify the map changes to a satellite view. |
-| 3 | Toggle back to "Map" from the layer options. | Verify the map returns to the standard map view. |
-
-### Test Case 4: Ensure Directions Feature is Working
-**Precondition:** User is on the Google Maps home screen.
-
-| Step | Actions | Verifications |
-|-------------|--------------|--------------------|
-| 1 | Click on the "P+ directions" button (located next to the search bar). | Verify the directions panel opens on the left side. |
-| 2 | Enter "The Rockefeller University" as the starting point. | Verify the starting point is recognized and auto-completed. |
-| 3 | Enter "Mount Sinai Queens" as the destination point. | Verify the destination point is recognized and auto-completed. |
-| 4 | Click "Get Directions." | Verify that the route is displayed on the map with step-by-step directions on the left panel. |
-
-### Test Case 5: Verify Category Filters
-**Precondition:** User is on the Google Maps home screen.
-
-| Step | Actions | Verifications |
-|-------------|--------------|--------------------|
-| 1 | Click on the "Restaurantes" filter button at the top of the screen. | Verify the map updates to show restaurant icons and a list of restaurants appears. |
-| 2 | Click on the "Hotéis" filter button at the top of the screen. | Verify the map updates to show hotel icons and a list of hotels appears. |
-| 3 | Click on the "Farmácias" filter button at the top of the screen. | Verify the map updates to show pharmacy icons and a list of pharmacies appears. |
-
----
 ### Test Case 1: Validate Place Search Functionality
 **Precondition:** User is on the default Google Maps interface.
 
@@ -86,7 +40,7 @@
 | Step | Actions | Verifications |
 |-------------|--------------|--------------------|
 | 1 | Click the "Museus" category button at the top. | Ensure the map updates to show museum icons and listings. |
-| 2 | Click on the "Transporte público" category button. | Ensure the map updates to show public transportation icons and listings. |
+| 2 | Click on the "Transporte pï¿½blico" category button. | Ensure the map updates to show public transportation icons and listings. |
 | 3 | Click on the "Coisas legais para fazer" category button. | Ensure the map updates to show touristic attractions and recommendations. |
 
 ---
