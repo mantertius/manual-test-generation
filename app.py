@@ -1,4 +1,5 @@
 # flake8: noqa
+import datetime
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -110,6 +111,13 @@ def perform_comparison(df_a, df_b, progress_placeholder):
 
 
 # Streamlit application
+# st.info("This app compares the similarity between two types of tests based on their actions and verifications. Upload the 'tables.html' file to get started.")
+# st.snow()
+st.set_page_config(
+    page_title="Test Similarity Comparison",
+    page_icon="🧪"
+    ,
+)
 st.title("Semantic and Cosine Similarity Comparison by Test Name and Type")
 uploaded_file = st.file_uploader("Upload the 'tables.html' file", type=["html"])
 
@@ -160,61 +168,89 @@ The color intensity in the graph represents this final score:
         # Create placeholders for loading indicators
         spinner_placeholder = st.empty()
         progress_placeholder = st.empty()
-
+        #calculate elapsed time
+        start = datetime.datetime.now()
         with spinner_placeholder.container():
-            st.write("🔄 Generating overall comparison...")
-
             # Progress Bar initialization for this block
             progress_bar = progress_placeholder.progress(0)
             num_tests = len(test_data)  # Total number of tests
+            overall_similarity_scores : list[float] = []
 
             for idx, (test_name, types) in enumerate(test_data.items()):
-                if len(types) == 2:
-                    type_a = list(types.keys())[0]
-                    type_b = list(types.keys())[1]
+                with st.spinner(f"Processing test '{test_name}'..."):
+                    if len(types) == 2:
+                        type_a = list(types.keys())[0]
+                        type_b = list(types.keys())[1]
 
-                    # Perform semantic comparison for Actions and Verifications
-                    type_a_df = types[type_a]
-                    type_b_df = types[type_b]
+                        # Perform semantic comparison for Actions and Verifications
+                        type_a_df = types[type_a]
+                        type_b_df = types[type_b]
 
-                    similarity_scores = []
-                    for i, row_a in type_a_df.iterrows():
-                        action_a = row_a["Actions"]
-                        verification_a = row_a["Verifications"]
-                        if i < len(type_b_df):
-                            row_b = type_b_df.iloc[i]
-                            action_b = row_b["Actions"]
-                            verification_b = row_b["Verifications"]
+                        similarity_scores = []
+                        for i, row_a in type_a_df.iterrows():
+                            action_a = row_a["Actions"]
+                            verification_a = row_a["Verifications"]
+                            if i < len(type_b_df):
+                                row_b = type_b_df.iloc[i]
+                                action_b = row_b["Actions"]
+                                verification_b = row_b["Verifications"]
 
-                            # Calculate semantic similarity
-                            action_similarity = semantic_similarity_bert(action_a, action_b)
-                            verification_similarity = semantic_similarity_bert(verification_a, verification_b)
+                                # Calculate semantic similarity
+                                action_similarity = semantic_similarity_bert(action_a, action_b)
+                                verification_similarity = semantic_similarity_bert(verification_a, verification_b)
 
-                            # Average of action and verification similarity
-                            row_similarity = (action_similarity + verification_similarity) / 2
-                            similarity_scores.append(row_similarity)
+                                # Average of action and verification similarity
+                                row_similarity = (action_similarity + verification_similarity) / 2
+                                similarity_scores.append(row_similarity)
 
-                    avg_similarity = np.mean(similarity_scores) if similarity_scores else 0
+                        avg_similarity = np.mean(similarity_scores) if similarity_scores else 0
+                        overall_similarity_scores.append(avg_similarity)
 
-                    # Gradients for color intensity
-                    color_intensity = min(1, max(0, avg_similarity))
-                    bar_color = plt.cm.viridis(color_intensity)
+                        # Gradients for color intensity
+                        color_intensity = avg_similarity  # Use the average similarity directly for color intensity
+                        bar_color = plt.cm.viridis(color_intensity)  # Use viridis colormap for gradient colors
 
-                    # Draw the bar with gradient color
-                    ax.barh(test_name, avg_similarity, color=bar_color)
+                        # Draw the bar with gradient color
+                        ax.barh(test_name, avg_similarity, color=bar_color)
+                        ax.text(avg_similarity, test_name, f"{avg_similarity:.4f}", va='center', ha='right', color='black')
 
-                # Update progress bar
-                progress = (idx + 1) / num_tests
-                progress_bar.progress(progress)
+                    # Update progress bar
+                    progress = (idx + 1) / num_tests
+                    progress_bar.progress(progress)
 
             # Clear the loading indicators
-            spinner_placeholder.empty()
-            progress_placeholder.empty()
+            spinner_placeholder.success("✅ Overall comparison completed!")
+            progress_placeholder.markdown('')
 
+        with st.container():
+            # Calculate elapsed time
+            end = datetime.datetime.now()
+            elapsed_time = end - start
+            formatted_elapsed_time = elapsed_time.total_seconds()
+            st.write(f"⏱️ Elapsed Time: {formatted_elapsed_time} seconds")
             plt.xlabel("Average Similarity")
             plt.ylabel("Test Name")
             plt.title("Similarity Comparison by Test Name")
             st.pyplot(fig)
+
+            # Display overall metrics
+            a,b,c,d = st.columns(4)
+            a.metric(
+                label="Total Tests 📊",
+                value=f"{num_tests}"
+            )
+            b.metric(
+                label="Average Similarity 📈",
+                value=f"{np.mean(overall_similarity_scores):.4f}",
+            )
+            c.metric(
+                label="Minimum Similarity 📉",
+                value=f"{min(overall_similarity_scores):.4f}",
+            )
+            d.metric(
+                label="Maximum Similarity 🏆",
+                value=f"{max(overall_similarity_scores):.4f}",
+            )
 
     st.markdown('---')
 
