@@ -46,12 +46,6 @@ def extract_test_data_from_html(file_path):
 
     return test_data
 
-# Cosine similarity using TF-IDF Vectorizer
-def cosine_similarity_tfidf(text1, text2):
-    vectorizer = TfidfVectorizer().fit([text1, text2])
-    vectors = vectorizer.transform([text1, text2])
-    return cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
-
 def handle_null_values(text1, text2):
     """Handle null/None values in text comparison."""
     if pd.isna(text1) and pd.isna(text2):
@@ -60,7 +54,13 @@ def handle_null_values(text1, text2):
         return 0.0  # One empty means no similarity
     return None  # Both non-null, proceed with normal comparison
 
-# Semantic similarity using Sentence-BERT (better for contextual similarity)
+# Cosine similarity using TF-IDF Vectorizer
+def cosine_similarity_tfidf(text1, text2):
+    vectorizer = TfidfVectorizer().fit([text1, text2])
+    vectors = vectorizer.transform([text1, text2])
+    return cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
+
+# Semantic similarity using Sentence-BERT
 def semantic_similarity_bert(text1, text2):
     """Calculate semantic similarity with null value handling."""
     # First check for null values
@@ -71,6 +71,43 @@ def semantic_similarity_bert(text1, text2):
     model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
     embeddings = model.encode([str(text1), str(text2)])
     return np.dot(embeddings[0], embeddings[1]) / (np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1]))
+
+def perform_comparison(df_a, df_b, progress_placeholder):
+    """Perform row-wise comparison with progress tracking."""
+    row_similarities = []
+    # Use the shorter DataFrame length to avoid index errors
+    total_rows = min(len(df_a), len(df_b))
+
+    # Create a progress bar
+    progress_bar = progress_placeholder.progress(0)
+
+    # Only compare up to the length of the shorter DataFrame
+    for i in range(total_rows):
+        row_a = df_a.iloc[i]
+        row_b = df_b.iloc[i]
+
+        action_a = row_a["Actions"]
+        verification_a = row_a["Verifications"]
+        action_b = row_b["Actions"]
+        verification_b = row_b["Verifications"]
+
+        # Calculate semantic similarity using sentence transformer
+        action_similarity = semantic_similarity_bert(action_a, action_b)
+        verification_similarity = semantic_similarity_bert(verification_a, verification_b)
+
+        # Average of action and verification similarity as row-wise similarity
+        row_similarity = (action_similarity + verification_similarity) / 2
+        row_similarities.append(row_similarity)
+
+        # Update progress
+        progress = (i + 1) / total_rows
+        progress_bar.progress(progress)
+
+    # Clean up progress bar after completion
+    progress_placeholder.empty()
+
+    return row_similarities, total_rows
+
 
 # Streamlit application
 st.title("Semantic and Cosine Similarity Comparison by Test Name and Type")
@@ -112,61 +149,72 @@ The color intensity in the graph represents this final score:
 """
 
     st.markdown(explanation)
-    
     # Extract test data
     test_data = extract_test_data_from_html(temp_path)
 
-    # Display a graph for the overall similarity (we will calculate it on a row-wise basis soon)
-    st.subheader("Overall Similarity Comparison")
-    fig, ax = plt.subplots()
-    
-    # Progress Bar initialization for this block
-    progress_bar = st.progress(0)  
-    num_tests = len(test_data)  # Total number of tests
-    
-    for idx, (test_name, types) in enumerate(test_data.items()):
-        if len(types) == 2:
-            type_a = list(types.keys())[0]
-            type_b = list(types.keys())[1]
+    if st.button("Generate Overall Similarity Comparison"):
+        # Display a graph for the overall similarity
+        st.subheader("Overall Similarity Comparison")
+        fig, ax = plt.subplots()
 
-            # Perform semantic comparison for Actions and Verifications
-            type_a_df = types[type_a]
-            type_b_df = types[type_b]
+        # Create placeholders for loading indicators
+        spinner_placeholder = st.empty()
+        progress_placeholder = st.empty()
 
-            similarity_scores = []
-            for i, row_a in type_a_df.iterrows():
-                action_a = row_a["Actions"]
-                verification_a = row_a["Verifications"]
-                if i < len(type_b_df):
-                    row_b = type_b_df.iloc[i]
-                    action_b = row_b["Actions"]
-                    verification_b = row_b["Verifications"]
+        with spinner_placeholder.container():
+            st.write("🔄 Generating overall comparison...")
 
-                    # Calculate semantic similarity using sentence transformer
-                    action_similarity = semantic_similarity_bert(action_a, action_b)
-                    verification_similarity = semantic_similarity_bert(verification_a, verification_b)
+            # Progress Bar initialization for this block
+            progress_bar = progress_placeholder.progress(0)
+            num_tests = len(test_data)  # Total number of tests
 
-                    # Average of action and verification similarity as row-wise similarity
-                    row_similarity = (action_similarity + verification_similarity) / 2
-                    similarity_scores.append(row_similarity)
+            for idx, (test_name, types) in enumerate(test_data.items()):
+                if len(types) == 2:
+                    type_a = list(types.keys())[0]
+                    type_b = list(types.keys())[1]
 
-            avg_similarity = np.mean(similarity_scores) if similarity_scores else 0
-            
-            # Gradients, mapping similarity score to color intensity (greener for higher similarity)
-            color_intensity = min(1, max(0, avg_similarity))  # Map to range 0-1
-            bar_color = plt.cm.viridis(color_intensity)  # Apply "viridis" colormap for a green-to-yellow gradient
-            
-            # Draw the bar with gradient color
-            ax.barh(test_name, avg_similarity, color=bar_color)
-        
-        # Update progress bar after each test is processed
-        progress = (idx + 1) / num_tests
-        progress_bar.progress(progress)
+                    # Perform semantic comparison for Actions and Verifications
+                    type_a_df = types[type_a]
+                    type_b_df = types[type_b]
 
-    plt.xlabel("Average Similarity")
-    plt.ylabel("Test Name")
-    plt.title("Similarity Comparison by Test Name")
-    st.pyplot(fig)
+                    similarity_scores = []
+                    for i, row_a in type_a_df.iterrows():
+                        action_a = row_a["Actions"]
+                        verification_a = row_a["Verifications"]
+                        if i < len(type_b_df):
+                            row_b = type_b_df.iloc[i]
+                            action_b = row_b["Actions"]
+                            verification_b = row_b["Verifications"]
+
+                            # Calculate semantic similarity
+                            action_similarity = semantic_similarity_bert(action_a, action_b)
+                            verification_similarity = semantic_similarity_bert(verification_a, verification_b)
+
+                            # Average of action and verification similarity
+                            row_similarity = (action_similarity + verification_similarity) / 2
+                            similarity_scores.append(row_similarity)
+
+                    avg_similarity = np.mean(similarity_scores) if similarity_scores else 0
+
+                    # Gradients for color intensity
+                    color_intensity = min(1, max(0, avg_similarity))
+                    bar_color = plt.cm.viridis(color_intensity)
+
+                    # Draw the bar with gradient color
+                    ax.barh(test_name, avg_similarity, color=bar_color)
+
+                # Update progress bar
+                progress = (idx + 1) / num_tests
+                progress_bar.progress(progress)
+
+            # Clear the loading indicators
+            spinner_placeholder.empty()
+            progress_placeholder.empty()
+
+            plt.xlabel("Average Similarity")
+            plt.ylabel("Test Name")
+            plt.title("Similarity Comparison by Test Name")
+            st.pyplot(fig)
 
     st.markdown('---')
 
@@ -178,45 +226,81 @@ The color intensity in the graph represents this final score:
 
         if st.button("Compare"):
             if type_a in test_data[selected_test] and type_b in test_data[selected_test]:
+                # Create placeholders for loading indicators
+                spinner_placeholder = st.empty()
+                progress_placeholder = st.empty()
+                spinner_container = spinner_placeholder.container()
+
+                spinner_container.write("🔄 Performing comparison analysis...")
+
                 # Retrieve DataFrames for display
                 df_a = test_data[selected_test][type_a]
                 df_b = test_data[selected_test][type_b]
 
-                # Row-wise comparison of Jaccard distance and cosine similarity
-                row_similarities = []
-                num_rows = len(df_a)
+                # Perform comparison with progress tracking
+                with spinner_placeholder.container():
+                    with st.spinner("Calculating similarities..."):
+                        row_similarities, compared_rows = perform_comparison(df_a, df_b, progress_placeholder)
 
-                # Add a progress bar for the row-wise comparison
-                row_progress_bar = st.progress(0)
+                # Calculate average similarity
+                avg_similarity = np.mean(row_similarities) if row_similarities else 0
 
-                for i, row_a in df_a.iterrows():
-                    action_a = row_a["Actions"]
-                    verification_a = row_a["Verifications"]
-                    if i < len(df_b):
-                        row_b = df_b.iloc[i]
-                        action_b = row_b["Actions"]
-                        verification_b = row_b["Verifications"]
+                # Clear the loading message
+                spinner_placeholder.success("✅ Comparison analysis completed!")
 
-                        # Calculate semantic similarity using sentence transformer
-                        action_similarity = semantic_similarity_bert(action_a, action_b)
-                        verification_similarity = semantic_similarity_bert(verification_a, verification_b)
+                    # Display results
+                with st.container():
+                    st.write(f"### Comparison Results for Test '{selected_test}'")
+                    # Create columns for the metrics
+                    col1, col2, col3, col4 = st.columns(4)
 
-                        # Average of action and verification similarity as row-wise similarity
-                        row_similarity = (action_similarity + verification_similarity) / 2
-                        row_similarities.append(row_similarity)
+                    with col1:
+                        st.metric(
+                            label="Average Similarity",
+                            value=f"{avg_similarity:.4f}"
+                        )
+                    with col2:
+                        st.metric(
+                            label="Minimum Similarity",
+                            value=f"{min(row_similarities):.4f}" if row_similarities else "N/A"
+                        )
+                    with col3:
+                        st.metric(
+                            label="Maximum Similarity",
+                            value=f"{max(row_similarities):.4f}" if row_similarities else "N/A"
+                        )
+                    with col4:
+                        st.metric(
+                            label="Rows Compared",
+                            value=f"{compared_rows}"
+                        )
 
-                    # Update progress bar
-                    progress = (i + 1) / num_rows
-                    row_progress_bar.progress(progress)
+                    # Display detailed results
+                    with st.expander("View Detailed Results", expanded=False):
+                        # Display length difference warning if applicable
+                        if len(df_a) != len(df_b):
+                            st.warning(f"⚠️ The two test types have different numbers of rows: {type_a}: {len(df_a)} rows, {type_b}: {len(df_b)} rows. Only the first {compared_rows} rows were compared.")
 
-                st.subheader(f"Results for {selected_test}")
-                st.write(f"Average Similarity between Type '{type_a}' and Type '{type_b}': **{np.mean(row_similarities):.4f}**")
+                        # Create copies of original DataFrames
+                        df_a_display = df_a.copy()
+                        df_b_display = df_b.copy()
 
-                st.write(f"**Type '{type_a}' Table Data:**")
-                st.dataframe(df_a, hide_index=True)
+                        # Initialize similarity columns with 'N/A'
+                        df_a_display.loc[:, 'Similarity'] = 'N/A'
+                        df_b_display.loc[:, 'Similarity'] = 'N/A'
 
-                st.write(f"**Type '{type_b}' Table Data:**")
-                st.dataframe(df_b, hide_index=True)
+                        # Update similarity values for compared rows
+                        for i, similarity in enumerate(row_similarities):
+                            if i < len(df_a_display):
+                                df_a_display.at[df_a_display.index[i], 'Similarity'] = f"{similarity:.4f}"
+                            if i < len(df_b_display):
+                                df_b_display.at[df_b_display.index[i], 'Similarity'] = f"{similarity:.4f}"
+
+                        st.write(f"**Type '{type_a}' Table Data:**")
+                        st.dataframe(df_a_display, hide_index=True)
+
+                        st.write(f"**Type '{type_b}' Table Data:**")
+                        st.dataframe(df_b_display, hide_index=True)
 
             else:
                 st.error(f"One or both types ('{type_a}', '{type_b}') are missing for the selected test.")
